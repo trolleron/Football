@@ -8,58 +8,52 @@ const config = {
     },
     physics: {
         default: 'arcade',
-        arcade: { gravity: { y: 1200 }, debug: false }
+        arcade: { 
+            gravity: { y: 0 }, // ВАЖНО: Убираем гравитацию для свободного бега по полю
+            debug: false 
+        }
     },
     scene: { preload, create, update }
 };
 
 const game = new Phaser.Game(config);
-let player, moveLeft, moveRight;
+let player, moveL, moveR, moveU, moveD;
 
 function preload() {
-    // Загружаем бег влево
-    this.load.spritesheet('goblin_left', 'assets/goblin_run_left.png', { 
-        frameWidth: 480, 
-        frameHeight: 480 
-    });
-    // Загружаем бег вправо (тот файл, что у тебя есть)
-    this.load.spritesheet('goblin_right', 'assets/goblin_run_right.png', { 
-        frameWidth: 480, 
-        frameHeight: 480 
-    });
+    const frameData = { frameWidth: 480, frameHeight: 480 };
+    this.load.spritesheet('gob_l', 'assets/goblin_run_left.png', frameData);
+    this.load.spritesheet('gob_r', 'assets/goblin_run_right.png', frameData);
+    this.load.spritesheet('gob_u', 'assets/goblin_run_up.png', frameData);
+    this.load.spritesheet('gob_d', 'assets/goblin_run_down.png', frameData);
 }
 
 function create() {
-    this.cameras.main.setBackgroundColor('#4488aa');
-    let ground = this.add.rectangle(1500, 430, 3000, 40, 0x2e7d32);
-    this.physics.add.existing(ground, true);
+    // Рисуем поле (теперь оно занимает весь экран по высоте)
+    this.add.rectangle(1500, 225, 3000, 450, 0x2e7d32);
 
-    // Анимация бега ВЛЕВО
-    this.anims.create({
-        key: 'run_l',
-        frames: this.anims.generateFrameNumbers('goblin_left', { start: 0, end: 11 }),
-        frameRate: 15,
-        repeat: -1
+    // Создаем анимации для всех направлений
+    const anims = [
+        { key: 'run_l', asset: 'gob_l' },
+        { key: 'run_r', asset: 'gob_r' },
+        { key: 'run_u', asset: 'gob_u' },
+        { key: 'run_d', asset: 'gob_d' }
+    ];
+
+    anims.forEach(anim => {
+        this.anims.create({
+            key: anim.key,
+            frames: this.anims.generateFrameNumbers(anim.asset, { start: 0, end: 11 }),
+            frameRate: 15,
+            repeat: -1
+        });
     });
 
-    // Анимация бега ВПРАВО
-    this.anims.create({
-        key: 'run_r',
-        frames: this.anims.generateFrameNumbers('goblin_right', { start: 0, end: 11 }),
-        frameRate: 15,
-        repeat: -1
-    });
-
-    // Создаем игрока (начальный спрайт - вправо)
-    player = this.physics.add.sprite(200, 300, 'goblin_right');
-    player.setScale(0.25);
-    player.setCollideWorldBounds(true);
+    player = this.physics.add.sprite(200, 225, 'gob_r');
+    player.setScale(0.25).setCollideWorldBounds(true);
     
-    // Хитбокс
-    player.body.setSize(200, 350); 
-    player.body.setOffset(140, 80);
-
-    this.physics.add.collider(player, ground);
+    // Хитбокс для 2D проекции
+    player.body.setSize(200, 200); 
+    player.body.setOffset(140, 200);
 
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, 3000, 450);
@@ -68,33 +62,41 @@ function create() {
 }
 
 function update() {
-    if (moveLeft) {
-        player.setVelocityX(-300);
-        // Переключаем текстуру на "левую" и запускаем анимацию
-        player.setTexture('goblin_left'); 
+    player.setVelocity(0);
+    let speed = 300;
+
+    if (moveL) {
+        player.setVelocityX(-speed);
+        player.setTexture('gob_l');
         player.play('run_l', true);
-    } 
-    else if (moveRight) {
-        player.setVelocityX(300);
-        // Переключаем текстуру на "правую" и запускаем анимацию
-        player.setTexture('goblin_right');
+    } else if (moveR) {
+        player.setVelocityX(speed);
+        player.setTexture('gob_r');
         player.play('run_r', true);
-    } 
-    else {
-        player.setVelocityX(0);
+    } else if (moveU) {
+        player.setVelocityY(-speed);
+        player.setTexture('gob_u');
+        player.play('run_u', true);
+    } else if (moveD) {
+        player.setVelocityY(speed);
+        player.setTexture('gob_d');
+        player.play('run_d', true);
+    } else {
         player.anims.stop();
-        player.setFrame(0); 
+        player.setFrame(0);
     }
 }
 
 function setupControls() {
-    let h = 450;
-    let btnStyle = { fontSize: '50px', backgroundColor: '#00000088', padding: 20 };
-    let btnL = this.add.text(50, h-110, '◀', btnStyle).setInteractive().setScrollFactor(0);
-    btnL.on('pointerdown', () => moveLeft = true);
-    btnL.on('pointerup', () => moveLeft = false);
-
-    let btnR = this.add.text(200, h-110, '▶', btnStyle).setInteractive().setScrollFactor(0);
-    btnR.on('pointerdown', () => moveRight = true);
-    btnR.on('pointerup', () => moveRight = false);
+    let btnStyle = { fontSize: '40px', backgroundColor: '#00000088', padding: 15 };
+    
+    // Крестовина управления
+    this.add.text(100, 280, '▲', btnStyle).setInteractive().setScrollFactor(0)
+        .on('pointerdown', () => moveU = true).on('pointerup', () => moveU = false);
+    this.add.text(100, 380, '▼', btnStyle).setInteractive().setScrollFactor(0)
+        .on('pointerdown', () => moveD = true).on('pointerup', () => moveD = false);
+    this.add.text(30, 330, '◀', btnStyle).setInteractive().setScrollFactor(0)
+        .on('pointerdown', () => moveL = true).on('pointerup', () => moveL = false);
+    this.add.text(170, 330, '▶', btnStyle).setInteractive().setScrollFactor(0)
+        .on('pointerdown', () => moveR = true).on('pointerup', () => moveR = false);
 }
