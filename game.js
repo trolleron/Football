@@ -1,24 +1,24 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.RESIZE, // Растягивает игру на весь экран Telegram
+        mode: Phaser.Scale.RESIZE,
         parent: 'game-container',
         width: '100%',
         height: '100%'
     },
     physics: {
         default: 'arcade',
-        arcade: { gravity: { y: 0 }, debug: false } // Гравитация 0 для свободного бега
+        arcade: { gravity: { y: 0 }, debug: false }
     },
     scene: { preload, create, update }
 };
 
 const game = new Phaser.Game(config);
 let player, moveL, moveR, moveU, moveD;
+const WORLD_WIDTH = 5000; // Длина поля
 
 function preload() {
     const frameData = { frameWidth: 480, frameHeight: 480 };
-    // Загружаем все 4 файла (убедись, что названия в assets совпадают)
     this.load.spritesheet('gob_l', 'assets/goblin_run_left.png', frameData);
     this.load.spritesheet('gob_r', 'assets/goblin_run_right.png', frameData);
     this.load.spritesheet('gob_u', 'assets/goblin_run_up.png', frameData);
@@ -26,14 +26,15 @@ function preload() {
 }
 
 function create() {
-    // Получаем текущий размер экрана
-    const w = this.scale.width;
     const h = this.scale.height;
 
-    // 1. Поле (делаем его очень длинным)
-    this.add.rectangle(2500, h/2, 5000, h, 0x2e7d32); 
+    // 1. Устанавливаем границы ФИЗИЧЕСКОГО мира (теперь он не застрянет)
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, h);
 
-    // 2. Анимации
+    // 2. Рисуем длинное поле
+    this.add.rectangle(WORLD_WIDTH / 2, h / 2, WORLD_WIDTH, h, 0x2e7d32);
+
+    // 3. Создаем анимации
     const directions = [
         { key: 'run_l', asset: 'gob_l' },
         { key: 'run_r', asset: 'gob_r' },
@@ -52,51 +53,61 @@ function create() {
         }
     });
 
-    // 3. Создание игрока
-    player = this.physics.add.sprite(w/2, h/2, 'gob_l');
-    player.setScale(0.3); // Размер гоблина
-    player.setCollideWorldBounds(true);
+    // 4. Персонаж
+    player = this.physics.add.sprite(200, h / 2, 'gob_r');
+    player.setScale(0.3);
+    player.setCollideWorldBounds(true); // Теперь он упрется только в самом конце поля (5000px)
 
-    // 4. Камера
+    // 5. Камера
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
-    this.cameras.main.setBounds(0, 0, 5000, h);
-    this.physics.world.setBounds(0, 0, 5000, h);
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, h);
 
-    // 5. Управление (Крестовина)
-    createControls.call(this);
+    // 6. Красивый джойстик
+    createNiceJoystick.call(this);
 }
 
-function createControls() {
+function createNiceJoystick() {
     const h = this.scale.height;
-    const btnStyle = { fontSize: '60px', backgroundColor: '#00000055', padding: 10 };
+    const padding = 60;
+    const size = 50;
+    const xBase = 120;
+    const yBase = h - 120;
 
-    // Располагаем кнопки в углу для удобства больших пальцев
-    const upBtn = this.add.text(120, h - 220, ' ▲ ', btnStyle).setInteractive().setScrollFactor(0);
-    const downBtn = this.add.text(120, h - 100, ' ▼ ', btnStyle).setInteractive().setScrollFactor(0);
-    const leftBtn = this.add.text(30, h - 160, ' ◀ ', btnStyle).setInteractive().setScrollFactor(0);
-    const rightBtn = this.add.text(210, h - 160, ' ▶ ', btnStyle).setInteractive().setScrollFactor(0);
+    // Функция для создания кнопок
+    const createBtn = (x, y, label, pointerVar) => {
+        let btn = this.add.container(x, y);
+        let circle = this.add.circle(0, 0, size, 0xffffff, 0.2);
+        let text = this.add.text(0, 0, label, { fontSize: '40px' }).setOrigin(0.5);
+        btn.add([circle, text]);
+        btn.setInteractive(new Phaser.Geom.Circle(0, 0, size), Phaser.Geom.Circle.Contains);
+        btn.setScrollFactor(0); // Кнопки не уплывают при движении камеры
+        btn.setDepth(100);
 
-    // Логика нажатий
-    upBtn.on('pointerdown', () => moveU = true).on('pointerup', () => moveU = false);
-    downBtn.on('pointerdown', () => moveD = true).on('pointerup', () => moveD = false);
-    leftBtn.on('pointerdown', () => moveL = true).on('pointerup', () => moveL = false);
-    rightBtn.on('pointerdown', () => moveR = true).on('pointerup', () => moveR = false);
+        btn.on('pointerdown', () => { window[pointerVar] = true; circle.setAlpha(0.5); });
+        btn.on('pointerup', () => { window[pointerVar] = false; circle.setAlpha(0.2); });
+        btn.on('pointerout', () => { window[pointerVar] = false; circle.setAlpha(0.2); });
+    };
+
+    createBtn(xBase, yBase - padding, '▲', 'moveU');
+    createBtn(xBase, yBase + padding, '▼', 'moveD');
+    createBtn(xBase - padding, yBase, '◀', 'moveL');
+    createBtn(xBase + padding, yBase, '▶', 'moveR');
 }
 
 function update() {
     player.setVelocity(0);
-    const s = 350; // Скорость бега
+    const s = 400; // Скорость гоблина
 
-    if (moveL) {
+    if (window.moveL) {
         player.setVelocityX(-s);
         player.play('run_l', true);
-    } else if (moveR) {
+    } else if (window.moveR) {
         player.setVelocityX(s);
         player.play('run_r', true);
-    } else if (moveU) {
+    } else if (window.moveU) {
         player.setVelocityY(-s);
         player.play('run_u', true);
-    } else if (moveD) {
+    } else if (window.moveD) {
         player.setVelocityY(s);
         player.play('run_d', true);
     } else {
