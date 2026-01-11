@@ -1,98 +1,95 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.FIT, // Растягивает под экран
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: 800,
         height: 450
     },
     physics: {
         default: 'arcade',
-        arcade: { gravity: { y: 1000 }, debug: false }
+        arcade: { gravity: { y: 1200 }, debug: false }
     },
     scene: { preload, create, update }
 };
 
 const game = new Phaser.Game(config);
-let player, ball, moveLeft, moveRight, btnJump, btnKick;
+let player, ball, moveLeft, moveRight;
 
 function preload() {
-    // Пока мы не загрузили спрайты Кунио-куна, создадим временные текстуры кодом
+    // Загружаем гоблина с расчетом 480x480 за кадр
+    this.load.spritesheet('goblin_left', 'assets/goblin_run_left.png', { 
+        frameWidth: 480, 
+        frameHeight: 480 
+    });
+    this.load.image('ball', 'https://labs.phaser.io/assets/sprites/pangball.png');
 }
 
 function create() {
-    // Фон - небо (градиент)
     this.cameras.main.setBackgroundColor('#4488aa');
-
-    // Огромное поле (3000 пикселей в длину)
-    this.physics.world.setBounds(0, 0, 3000, 450);
-
-    // Газон с разметкой
     let ground = this.add.rectangle(1500, 430, 3000, 40, 0x2e7d32);
     this.physics.add.existing(ground, true);
 
-    // Линии разметки
-    for(let i=0; i<3000; i+=200) {
-        this.add.rectangle(i, 430, 2, 40, 0xffffff, 0.3);
-    }
+    // Анимация бега (используем все 12 кадров для плавности)
+    this.anims.create({
+        key: 'run_left',
+        frames: this.anims.generateFrameNumbers('goblin_left', { start: 0, end: 11 }),
+        frameRate: 15,
+        repeat: -1
+    });
 
-    // Ворота (как в Goal 3 - штанги с физикой)
-    let goalLeft = this.add.rectangle(10, 300, 20, 260, 0xffffff);
-    this.physics.add.existing(goalLeft, true);
+    // Создаем игрока и уменьшаем его масштаб (т.к. исходник 480px — это очень много для экрана 800x450)
+    player = this.physics.add.sprite(200, 300, 'goblin_left');
+    player.setScale(0.25); // Уменьшаем в 4 раза до ~120px
+    player.setCollideWorldBounds(true);
     
-    let goalRight = this.add.rectangle(2990, 300, 20, 260, 0xffffff);
-    this.physics.add.existing(goalRight, true);
+    // Настраиваем хитбокс (физическое тело), чтобы он был по центру гоблина, а не по всему кадру 480x480
+    player.body.setSize(200, 300);
+    player.body.setOffset(140, 100);
 
-    // Персонаж (Белый квадрат - временный Кунио)
-    player = this.add.rectangle(200, 300, 40, 60, 0xffffff);
-    this.physics.add.existing(player);
-    player.body.setCollideWorldBounds(true);
+    ball = this.physics.add.sprite(400, 300, 'ball');
+    ball.setCollideWorldBounds(true).setBounce(0.8).setDragX(200);
 
-    // Мяч (Красный - временный)
-    ball = this.add.circle(400, 300, 15, 0xff0000);
-    this.physics.add.existing(ball);
-    ball.body.setCollideWorldBounds(true);
-    ball.body.setBounce(0.8); // Прыгучий как в Goal 3
-    ball.body.setDragX(200);
-
-    // Столкновения
     this.physics.add.collider(player, ground);
     this.physics.add.collider(ball, ground);
     this.physics.add.collider(player, ball);
 
-    // Камера
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, 3000, 450);
 
-    // КНОПКИ (Сенсорное управление)
     setupControls.call(this);
 }
 
 function setupControls() {
-    let w = 800; let h = 450;
+    let h = 450; let w = 800;
     let btnStyle = { fontSize: '40px', backgroundColor: '#00000088', padding: 15 };
 
-    // Джойстик влево/вправо
     this.add.text(40, h-100, '◀', btnStyle).setInteractive().setScrollFactor(0)
         .on('pointerdown', () => moveLeft = true).on('pointerup', () => moveLeft = false);
     
     this.add.text(160, h-100, '▶', btnStyle).setInteractive().setScrollFactor(0)
         .on('pointerdown', () => moveRight = true).on('pointerup', () => moveRight = false);
 
-    // Кнопка A (Прыжок)
-    this.add.text(w-220, h-100, ' A ', btnStyle).setInteractive().setScrollFactor(0)
-        .on('pointerdown', () => { if(player.body.touching.down) player.body.setVelocityY(-600) });
-
-    // Кнопка B (Удар)
-    this.add.text(w-100, h-100, ' B ', btnStyle).setInteractive().setScrollFactor(0)
+    this.add.text(w-120, h-100, ' B ', btnStyle).setInteractive().setScrollFactor(0)
         .on('pointerdown', () => {
-            let dist = Phaser.Math.Distance.Between(player.x, player.y, ball.x, ball.y);
-            if(dist < 70) ball.body.setVelocity(1000, -400); // Сильный удар
+            if(Phaser.Math.Distance.Between(player.x, player.y, ball.x, ball.y) < 80) {
+                ball.body.setVelocity(moveLeft ? -1000 : 1000, -400);
+            }
         });
 }
 
 function update() {
-    if (moveLeft) player.body.setVelocityX(-300);
-    else if (moveRight) player.body.setVelocityX(300);
-    else player.body.setVelocityX(0);
+    if (moveLeft) {
+        player.setVelocityX(-300);
+        player.flipX = false; // Твой спрайт изначально смотрит влево
+        player.play('run_left', true);
+    } else if (moveRight) {
+        player.setVelocityX(300);
+        player.flipX = true; // Зеркалим для бега вправо
+        player.play('run_left', true);
+    } else {
+        player.setVelocityX(0);
+        player.anims.stop();
+        player.setFrame(0);
+    }
 }
