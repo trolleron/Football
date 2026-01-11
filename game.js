@@ -14,15 +14,19 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
-let player, ball, moveLeft, moveRight;
+let player, moveLeft, moveRight;
 
 function preload() {
-    // Загружаем гоблина с расчетом 480x480 за кадр
+    // Загружаем бег влево
     this.load.spritesheet('goblin_left', 'assets/goblin_run_left.png', { 
         frameWidth: 480, 
         frameHeight: 480 
     });
-    this.load.image('ball', 'https://labs.phaser.io/assets/sprites/pangball.png');
+    // Загружаем бег вправо (тот файл, что у тебя есть)
+    this.load.spritesheet('goblin_right', 'assets/goblin_run_right.png', { 
+        frameWidth: 480, 
+        frameHeight: 480 
+    });
 }
 
 function create() {
@@ -30,29 +34,32 @@ function create() {
     let ground = this.add.rectangle(1500, 430, 3000, 40, 0x2e7d32);
     this.physics.add.existing(ground, true);
 
-    // Анимация бега (используем все 12 кадров для плавности)
+    // Анимация бега ВЛЕВО
     this.anims.create({
-        key: 'run_left',
+        key: 'run_l',
         frames: this.anims.generateFrameNumbers('goblin_left', { start: 0, end: 11 }),
         frameRate: 15,
         repeat: -1
     });
 
-    // Создаем игрока и уменьшаем его масштаб (т.к. исходник 480px — это очень много для экрана 800x450)
-    player = this.physics.add.sprite(200, 300, 'goblin_left');
-    player.setScale(0.25); // Уменьшаем в 4 раза до ~120px
+    // Анимация бега ВПРАВО
+    this.anims.create({
+        key: 'run_r',
+        frames: this.anims.generateFrameNumbers('goblin_right', { start: 0, end: 11 }),
+        frameRate: 15,
+        repeat: -1
+    });
+
+    // Создаем игрока (начальный спрайт - вправо)
+    player = this.physics.add.sprite(200, 300, 'goblin_right');
+    player.setScale(0.25);
     player.setCollideWorldBounds(true);
     
-    // Настраиваем хитбокс (физическое тело), чтобы он был по центру гоблина, а не по всему кадру 480x480
-    player.body.setSize(200, 300);
-    player.body.setOffset(140, 100);
-
-    ball = this.physics.add.sprite(400, 300, 'ball');
-    ball.setCollideWorldBounds(true).setBounce(0.8).setDragX(200);
+    // Хитбокс
+    player.body.setSize(200, 350); 
+    player.body.setOffset(140, 80);
 
     this.physics.add.collider(player, ground);
-    this.physics.add.collider(ball, ground);
-    this.physics.add.collider(player, ball);
 
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, 3000, 450);
@@ -60,36 +67,34 @@ function create() {
     setupControls.call(this);
 }
 
-function setupControls() {
-    let h = 450; let w = 800;
-    let btnStyle = { fontSize: '40px', backgroundColor: '#00000088', padding: 15 };
-
-    this.add.text(40, h-100, '◀', btnStyle).setInteractive().setScrollFactor(0)
-        .on('pointerdown', () => moveLeft = true).on('pointerup', () => moveLeft = false);
-    
-    this.add.text(160, h-100, '▶', btnStyle).setInteractive().setScrollFactor(0)
-        .on('pointerdown', () => moveRight = true).on('pointerup', () => moveRight = false);
-
-    this.add.text(w-120, h-100, ' B ', btnStyle).setInteractive().setScrollFactor(0)
-        .on('pointerdown', () => {
-            if(Phaser.Math.Distance.Between(player.x, player.y, ball.x, ball.y) < 80) {
-                ball.body.setVelocity(moveLeft ? -1000 : 1000, -400);
-            }
-        });
-}
-
 function update() {
     if (moveLeft) {
         player.setVelocityX(-300);
-        player.flipX = false; // Твой спрайт изначально смотрит влево
-        player.play('run_left', true);
-    } else if (moveRight) {
+        // Переключаем текстуру на "левую" и запускаем анимацию
+        player.setTexture('goblin_left'); 
+        player.play('run_l', true);
+    } 
+    else if (moveRight) {
         player.setVelocityX(300);
-        player.flipX = true; // Зеркалим для бега вправо
-        player.play('run_left', true);
-    } else {
+        // Переключаем текстуру на "правую" и запускаем анимацию
+        player.setTexture('goblin_right');
+        player.play('run_r', true);
+    } 
+    else {
         player.setVelocityX(0);
         player.anims.stop();
-        player.setFrame(0);
+        player.setFrame(0); 
     }
+}
+
+function setupControls() {
+    let h = 450;
+    let btnStyle = { fontSize: '50px', backgroundColor: '#00000088', padding: 20 };
+    let btnL = this.add.text(50, h-110, '◀', btnStyle).setInteractive().setScrollFactor(0);
+    btnL.on('pointerdown', () => moveLeft = true);
+    btnL.on('pointerup', () => moveLeft = false);
+
+    let btnR = this.add.text(200, h-110, '▶', btnStyle).setInteractive().setScrollFactor(0);
+    btnR.on('pointerdown', () => moveRight = true);
+    btnR.on('pointerup', () => moveRight = false);
 }
