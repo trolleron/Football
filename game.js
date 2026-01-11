@@ -1,98 +1,98 @@
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 450,
-    parent: 'game-container',
+    scale: {
+        mode: Phaser.Scale.FIT, // Растягивает под экран
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 800,
+        height: 450
+    },
     physics: {
         default: 'arcade',
-        arcade: {
-            gravity: { y: 1000 },
-            debug: false
-        }
+        arcade: { gravity: { y: 1000 }, debug: false }
     },
     scene: { preload, create, update }
 };
 
 const game = new Phaser.Game(config);
-
-let player, ball, cursors, moveLeft, moveRight, isJumping = false;
+let player, ball, moveLeft, moveRight, btnJump, btnKick;
 
 function preload() {
-    // Используем готовые ассеты из библиотеки Phaser для быстрой проверки
-    this.load.image('ball', 'https://labs.phaser.io/assets/sprites/pangball.png');
-    this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
+    // Пока мы не загрузили спрайты Кунио-куна, создадим временные текстуры кодом
 }
 
 function create() {
-    // 1. Создаем мир (длинное поле)
-    this.physics.world.setBounds(0, 0, 2000, 450);
+    // Фон - небо (градиент)
+    this.cameras.main.setBackgroundColor('#4488aa');
 
-    // 2. Рисуем газон
-    let ground = this.add.rectangle(1000, 435, 2000, 30, 0x2e7d32);
+    // Огромное поле (3000 пикселей в длину)
+    this.physics.world.setBounds(0, 0, 3000, 450);
+
+    // Газон с разметкой
+    let ground = this.add.rectangle(1500, 430, 3000, 40, 0x2e7d32);
     this.physics.add.existing(ground, true);
 
-    // 3. Ворота (простые штанги)
-    let leftGoal = this.add.rectangle(50, 350, 10, 150, 0xffffff);
-    let rightGoal = this.add.rectangle(1950, 350, 10, 150, 0xffffff);
-    this.physics.add.existing(leftGoal, true);
-    this.physics.add.existing(rightGoal, true);
+    // Линии разметки
+    for(let i=0; i<3000; i+=200) {
+        this.add.rectangle(i, 430, 2, 40, 0xffffff, 0.3);
+    }
 
-    // 4. Игрок
-    player = this.physics.add.sprite(200, 300, 'player');
-    player.setCollideWorldBounds(true);
-    player.setBounce(0.1);
+    // Ворота (как в Goal 3 - штанги с физикой)
+    let goalLeft = this.add.rectangle(10, 300, 20, 260, 0xffffff);
+    this.physics.add.existing(goalLeft, true);
+    
+    let goalRight = this.add.rectangle(2990, 300, 20, 260, 0xffffff);
+    this.physics.add.existing(goalRight, true);
 
-    // 5. Мяч (с высокой прыгучестью как в Goal 3)
-    ball = this.physics.add.sprite(400, 300, 'ball');
-    ball.setCollideWorldBounds(true);
-    ball.setBounce(0.8);
-    ball.setDragX(200);
-    ball.setCircle(15);
+    // Персонаж (Белый квадрат - временный Кунио)
+    player = this.add.rectangle(200, 300, 40, 60, 0xffffff);
+    this.physics.add.existing(player);
+    player.body.setCollideWorldBounds(true);
 
-    // 6. Столкновения
+    // Мяч (Красный - временный)
+    ball = this.add.circle(400, 300, 15, 0xff0000);
+    this.physics.add.existing(ball);
+    ball.body.setCollideWorldBounds(true);
+    ball.body.setBounce(0.8); // Прыгучий как в Goal 3
+    ball.body.setDragX(200);
+
+    // Столкновения
     this.physics.add.collider(player, ground);
     this.physics.add.collider(ball, ground);
     this.physics.add.collider(player, ball);
 
-    // 7. Камера
+    // Камера
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
-    this.cameras.main.setBounds(0, 0, 2000, 450);
+    this.cameras.main.setBounds(0, 0, 3000, 450);
 
-    // 8. СЕНСОРНОЕ УПРАВЛЕНИЕ (Кнопки на экране)
-    createTouchControls.call(this);
+    // КНОПКИ (Сенсорное управление)
+    setupControls.call(this);
 }
 
-function createTouchControls() {
-    // Кнопка Влево
-    let btnL = this.add.circle(80, 380, 40, 0xffffff, 0.3).setInteractive().setScrollFactor(0);
-    btnL.on('pointerdown', () => { moveLeft = true; });
-    btnL.on('pointerup', () => { moveLeft = false; });
+function setupControls() {
+    let w = 800; let h = 450;
+    let btnStyle = { fontSize: '40px', backgroundColor: '#00000088', padding: 15 };
 
-    // Кнопка Вправо
-    let btnR = this.add.circle(180, 380, 40, 0xffffff, 0.3).setInteractive().setScrollFactor(0);
-    btnR.on('pointerdown', () => { moveRight = true; });
-    btnR.on('pointerup', () => { moveRight = false; });
+    // Джойстик влево/вправо
+    this.add.text(40, h-100, '◀', btnStyle).setInteractive().setScrollFactor(0)
+        .on('pointerdown', () => moveLeft = true).on('pointerup', () => moveLeft = false);
+    
+    this.add.text(160, h-100, '▶', btnStyle).setInteractive().setScrollFactor(0)
+        .on('pointerdown', () => moveRight = true).on('pointerup', () => moveRight = false);
 
-    // Кнопка Прыжок/Удар
-    let btnJump = this.add.circle(720, 380, 45, 0xff0000, 0.5).setInteractive().setScrollFactor(0);
-    btnJump.on('pointerdown', () => {
-        if (player.body.touching.down) player.setVelocityY(-550);
-        // Если игрок рядом с мячом при нажатии - бьем!
-        let dist = Phaser.Math.Distance.Between(player.x, player.y, ball.x, ball.y);
-        if (dist < 60) {
-            ball.setVelocity(800, -300);
-        }
-    });
+    // Кнопка A (Прыжок)
+    this.add.text(w-220, h-100, ' A ', btnStyle).setInteractive().setScrollFactor(0)
+        .on('pointerdown', () => { if(player.body.touching.down) player.body.setVelocityY(-600) });
+
+    // Кнопка B (Удар)
+    this.add.text(w-100, h-100, ' B ', btnStyle).setInteractive().setScrollFactor(0)
+        .on('pointerdown', () => {
+            let dist = Phaser.Math.Distance.Between(player.x, player.y, ball.x, ball.y);
+            if(dist < 70) ball.body.setVelocity(1000, -400); // Сильный удар
+        });
 }
 
 function update() {
-    if (moveLeft) {
-        player.setVelocityX(-200);
-        player.flipX = true;
-    } else if (moveRight) {
-        player.setVelocityX(200);
-        player.flipX = false;
-    } else {
-        player.setVelocityX(0);
-    }
+    if (moveLeft) player.body.setVelocityX(-300);
+    else if (moveRight) player.body.setVelocityX(300);
+    else player.body.setVelocityX(0);
 }

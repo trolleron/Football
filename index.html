@@ -3,11 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Goal 3 Mobile Platformer</title>
+    <title>Goal 3 Remake</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #000; overflow: hidden; }
-        canvas { display: block; margin: 0 auto; }
+        /* Инструкция для переворота экрана */
+        @media screen and (orientation: portrait) {
+            body::after {
+                content: "Пожалуйста, переверните телефон в альбомный режим";
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: #222; color: white; display: flex;
+                align-items: center; justify-content: center; text-align: center;
+                z-index: 999; font-family: sans-serif; padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
