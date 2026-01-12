@@ -1,11 +1,10 @@
 const config = {
     type: Phaser.AUTO,
     scale: { 
-        mode: Phaser.Scale.FIT, // Изменил на FIT для лучшей работы в Telegram
+        mode: Phaser.Scale.RESIZE, // Убирает черные рамки, заполняя всё пространство
         parent: 'game-container', 
-        width: 1280, // Фиксированная ширина для стабильности
-        height: 720,
-        autoCenter: Phaser.Scale.CENTER_BOTH
+        width: '100%', 
+        height: '100%' 
     },
     physics: { default: 'arcade', arcade: { gravity: { y: 0 } } },
     scene: { preload, create, update }
@@ -20,7 +19,7 @@ function preload() {
     const frameSize = 480; 
     const idleFrames = { frameWidth: frameSize, frameHeight: frameSize };
     
-    // Загрузка (проверь пути к файлам!)
+    // Загрузка спрайтов
     this.load.spritesheet('idle_l', 'assets/goblin_idle_left.png', idleFrames);
     this.load.spritesheet('idle_r', 'assets/goblin_idle_right.png', idleFrames);
     this.load.spritesheet('idle_u', 'assets/goblin_idle_up.png', idleFrames);
@@ -33,12 +32,11 @@ function preload() {
 }
 
 function create() {
-    const gameW = this.scale.width;
-    const gameH = this.scale.height;
-    const WORLD_HEIGHT = gameH * 3; 
-
+    const h = this.scale.height;
+    const WORLD_HEIGHT = h * 3; 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
+    // Фон без черных рамок
     let bg = this.add.image(0, 0, 'stadium').setOrigin(0, 0);
     bg.setDisplaySize(WORLD_WIDTH, WORLD_HEIGHT);
 
@@ -57,36 +55,36 @@ function create() {
         });
     });
 
-    // --- ИСПРАВЛЕННЫЙ РАЗМЕР ---
+    // --- РАЗМЕР ГОБЛИНА (Золотая середина) ---
     player = this.physics.add.sprite(400, WORLD_HEIGHT / 2, 'idle_d');
-    player.setScale(0.35); // Этот размер должен быть как на твоем скрине
+    player.setScale(0.25); // Вернул нормальный средний размер
     player.setCollideWorldBounds(true);
-    player.body.setSize(220, 150).setOffset(130, 300);
+    player.body.setSize(200, 100).setOffset(140, 320);
 
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // Рисуем джойстик поверх всего
-    createFixedJoystick.call(this);
+    // Создаем джойстик, который ПРИКЛЕЕН к экрану
+    createSmartJoystick.call(this);
 }
 
-function createFixedJoystick() {
-    const gameH = this.scale.height;
-    // Смещаем джойстик чуть выше, чтобы не перекрывался системными кнопками
-    const xBase = 120, yBase = gameH - 120, step = 65;
+function createSmartJoystick() {
+    const h = this.scale.height;
+    // Фиксируем координаты относительно экрана, а не поля
+    const xBase = 100, yBase = h - 100, step = 55;
 
     const addBtn = (x, y, label, act) => {
-        let btn = this.add.circle(x, y, 45, 0x000000, 0.4)
+        let circle = this.add.circle(x, y, 40, 0x000000, 0.3)
             .setInteractive()
-            .setScrollFactor(0) // ВАЖНО: джойстик не уезжает с камерой
-            .setDepth(1000);
+            .setScrollFactor(0) // Не дает джойстику уплывать!
+            .setDepth(1000); // Поверх всего
         
-        this.add.text(x, y, label, {fontSize: '32px', color: '#ffffff'})
+        this.add.text(x, y, label, {fontSize: '30px', color: '#ffffff'})
             .setOrigin(0.5).setScrollFactor(0).setDepth(1001);
 
-        btn.on('pointerdown', () => { window[act] = true; btn.setAlpha(0.8); });
-        btn.on('pointerup', () => { window[act] = false; btn.setAlpha(0.4); });
-        btn.on('pointerout', () => { window[act] = false; btn.setAlpha(0.4); });
+        circle.on('pointerdown', () => { window[act] = true; circle.setAlpha(0.6); });
+        circle.on('pointerup', () => { window[act] = false; circle.setAlpha(0.3); });
+        circle.on('pointerout', () => { window[act] = false; circle.setAlpha(0.3); });
     };
 
     addBtn(xBase, yBase - step, '▲', 'moveU');
