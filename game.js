@@ -16,24 +16,26 @@ let joyX = 0, joyY = 0, isDragging = false;
 const JOYSTICK_RADIUS = 60;
 
 function preload() {
-    // 1. Загрузка всех элементов разметки
+    // 1. Базовая разметка
     const assets = [
         ['grass', 'grass.png'], ['b_down', 'border_down.png'], ['b_left', 'border_left.png'], 
         ['b_right', 'border_right.png'], ['b_up', 'border_up.png'], ['c_ld', 'corner_left_down.png'], 
         ['c_rd', 'corner_right_down.png'], ['c_lu', 'corner_left_up.png'], ['c_ru', 'corner_right_up.png'],
         ['conn_up', 'connection_up.png'], ['conn_down', 'connection_down.png'], 
         ['conn_l', 'connection_left.png'], ['conn_r', 'connection_right.png'],
-        ['line_v', 'vertical.png'], ['line_h', 'horizontal.png'], ['center_dot', 'center.png']
+        ['line_v', 'vertical.png'], ['line_h', 'horizontal.png'], ['center_dot', 'center.png'],
+        ['cap_top', 'Top-Down Simple Summer_Ground 37.png'], // Закругление сверху
+        ['cap_bottom', 'Top-Down Simple Summer_Ground 39.png'] // Закругление снизу
     ];
     assets.forEach(a => this.load.image(a[0], `assets/${a[1]}`));
 
-    // 2. Углы circle_01 - circle_12
+    // 2. Углы (круг и штрафная)
     for (let i = 1; i <= 12; i++) {
         let n = i < 10 ? `0${i}` : i;
         this.load.image(`circle_${n}`, `assets/circle_${n}.png`);
     }
 
-    // 3. Гоблин
+    // 3. Гоблин и ворота
     const spriteCfg = { frameWidth: 480, frameHeight: 480 };
     ['l', 'r', 'u', 'd'].forEach(d => {
         this.load.spritesheet(`idle_${d}`, `assets/goblin_idle_${getDirName(d)}.png`, spriteCfg);
@@ -51,32 +53,23 @@ function create() {
         for (let x = 0; x < COLS; x++) {
             let tileKey = 'grass';
 
-            // --- 1. ТОЧКИ ПЕНАЛЬТИ ---
-            if ((x === 2 && y === 7) || (x === 22 && y === 7)) {
-                tileKey = 'center_dot';
-            }
+            // --- 1. ВНЕШНИЕ ГРАНИЦЫ (Рисуем всегда, чтобы не было дыр за воротами) ---
+            if (x === 0 && y === 0) tileKey = 'c_lu';
+            else if (x === COLS - 1 && y === 0) tileKey = 'c_ru';
+            else if (x === 0 && y === ROWS - 1) tileKey = 'c_ld';
+            else if (x === COLS - 1 && y === ROWS - 1) tileKey = 'c_rd';
+            else if (y === 0) tileKey = 'b_up';
+            else if (y === ROWS - 1) tileKey = 'b_down';
+            else if (x === 0) tileKey = 'b_left';
+            else if (x === COLS - 1) tileKey = 'b_right';
 
-            // --- 2. ПРАВАЯ ШТРАФНАЯ (5x7) ---
-            else if (x >= 20 && x <= 24 && y >= 4 && y <= 10) {
-                if (x === 20 && y === 4) tileKey = 'circle_09';
-                else if (x === 20 && y === 10) tileKey = 'circle_12';
-                else if (x === 24 && (y === 4 || y === 10)) tileKey = 'conn_r';
-                else if (x === 20) tileKey = 'line_v';
-                else if (y === 4 || y === 10) tileKey = 'line_h';
-            }
-
-            // --- 3. ЛЕВАЯ ШТРАФНАЯ (5x7) ---
-            else if (x >= 0 && x <= 4 && y >= 4 && y <= 10) {
-                if (x === 4 && y === 4) tileKey = 'circle_10';
-                else if (x === 4 && y === 10) tileKey = 'circle_11';
-                else if (x === 0 && (y === 4 || y === 10)) tileKey = 'conn_l';
-                else if (x === 4) tileKey = 'line_v';
-                else if (y === 4 || y === 10) tileKey = 'line_h';
-            }
-
-            // --- 4. ЦЕНТРАЛЬНЫЙ КРУГ ---
-            else if (x >= 11 && x <= 13 && y >= 6 && y <= 8) {
-                if (x === 11 && y === 6) tileKey = 'circle_01';
+            // --- 2. ЦЕНТРАЛЬНАЯ ЛИНИЯ И КРУГ ---
+            else if (x >= 11 && x <= 13 && y >= 5 && y <= 9) {
+                // Плавные ограничители там, где линия касается круга
+                if (x === 12 && y === 5) tileKey = 'cap_bottom';
+                else if (x === 12 && y === 9) tileKey = 'cap_top';
+                // Сам круг
+                else if (x === 11 && y === 6) tileKey = 'circle_01';
                 else if (x === 12 && y === 6) tileKey = 'circle_02';
                 else if (x === 13 && y === 6) tileKey = 'circle_03';
                 else if (x === 13 && y === 7) tileKey = 'circle_04';
@@ -86,29 +79,41 @@ function create() {
                 else if (x === 11 && y === 7) tileKey = 'circle_08';
                 else if (x === 12 && y === 7) tileKey = 'center_dot';
             }
-
-            // --- 5. ЦЕНТРАЛЬНАЯ ЛИНИЯ ---
+            // Продолжение центральной линии
             else if (x === 12) {
                 if (y === 0) tileKey = 'conn_up';
                 else if (y === ROWS - 1) tileKey = 'conn_down';
                 else tileKey = 'line_v';
             }
 
-            // --- 6. КРАЯ ПОЛЯ ---
-            else if (x === 0 && y === 0) tileKey = 'c_lu';
-            else if (x === COLS - 1 && y === 0) tileKey = 'c_ru';
-            else if (x === 0 && y === ROWS - 1) tileKey = 'c_ld';
-            else if (x === COLS - 1 && y === ROWS - 1) tileKey = 'c_rd';
-            else if (y === 0) tileKey = 'b_up';
-            else if (y === ROWS - 1) tileKey = 'b_down';
-            else if (x === 0) tileKey = 'b_left';
-            else if (x === COLS - 1) tileKey = 'b_right';
+            // --- 3. ШТРАФНЫЕ ЗОНЫ (5x7) ---
+            // Справа
+            if (x >= 20 && x <= 23 && y >= 4 && y <= 10) {
+                if (x === 20 && y === 4) tileKey = 'circle_09';
+                else if (x === 20 && y === 10) tileKey = 'circle_12';
+                else if (x === 20) tileKey = 'line_v';
+                else if (y === 4 || y === 10) tileKey = (x === 24) ? 'conn_r' : 'line_h';
+                if (x === 22 && y === 7) tileKey = 'center_dot';
+            }
+            // Дополнительный фикс стыка штрафной с бровкой (x=24)
+            if (x === 24 && (y === 4 || y === 10)) tileKey = 'conn_r';
+
+            // Слева
+            if (x >= 1 && x <= 4 && y >= 4 && y <= 10) {
+                if (x === 4 && y === 4) tileKey = 'circle_10';
+                else if (x === 4 && y === 10) tileKey = 'circle_11';
+                else if (x === 4) tileKey = 'line_v';
+                else if (y === 4 || y === 10) tileKey = (x === 0) ? 'conn_l' : 'line_h';
+                if (x === 2 && y === 7) tileKey = 'center_dot';
+            }
+            // Дополнительный фикс стыка штрафной с бровкой (x=0)
+            if (x === 0 && (y === 4 || y === 10)) tileKey = 'conn_l';
 
             this.add.image(x * TILE_SIZE, y * TILE_SIZE, tileKey).setOrigin(0, 0).setDisplaySize(TILE_SIZE, TILE_SIZE);
         }
     }
 
-    // Персонаж и ворота
+    // Игрок и Ворота
     player = this.physics.add.sprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 'idle_d');
     player.setDisplaySize(210, 180).setDepth(5).setCollideWorldBounds(true);
     player.body.setSize(120, 60).setOffset(180, 380);
@@ -122,6 +127,8 @@ function create() {
     setupAnimations.call(this);
     createMobileJoystick.call(this);
 }
+
+// Функции update, createMobileJoystick, setupAnimations и getDirName остаются прежними...
 
 function update() {
     if (!player) return;
